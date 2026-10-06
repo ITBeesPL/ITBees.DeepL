@@ -56,7 +56,7 @@ public class DeepLTranslationServiceTests
     }
 
     [Fact]
-    public async Task CustomAddress_IsUsedAsSaved()
+    public async Task HostConfiguredProxy_IsUsedAsSaved()
     {
         _settings.Saved = new DeepLIntegrationSettings
         {
@@ -64,10 +64,28 @@ public class DeepLTranslationServiceTests
             ApiKey = "key",
             BaseUrl = "https://deepl-proxy.example.com"
         };
+        var options = new DeepLApiOptions { AdditionalAllowedBaseUrls = { "https://deepl-proxy.example.com" } };
+        var service = new DeepLTranslationService(_settings, _apiClient, options);
 
-        await _service.GetLanguagesAsync(DeepLLanguageType.Target);
+        await service.GetLanguagesAsync(DeepLLanguageType.Target);
 
         Assert.Equal("https://deepl-proxy.example.com", _apiClient.Calls.Single().BaseUrl);
+    }
+
+    [Fact]
+    public async Task DisallowedSavedAddress_IsRefusedBeforeAnyCall()
+    {
+        _settings.Saved = new DeepLIntegrationSettings
+        {
+            Enabled = true,
+            ApiKey = "key",
+            BaseUrl = "http://127.0.0.1:8080/internal/status#"
+        };
+
+        var e = await Assert.ThrowsAsync<DeepLApiException>(() => _service.TranslateAsync("tekst", "EN"));
+
+        Assert.Equal("invalid_base_url", e.ErrorCode);
+        Assert.Empty(_apiClient.Calls);
     }
 
     [Fact]

@@ -147,4 +147,48 @@ public class DeepLApiClientTests
 
         Assert.Equal("empty_response", e.ErrorCode);
     }
+
+    [Theory]
+    // The reported SSRF payload: "/v2/usage" would land in the fragment and the server would GET /internal/status.
+    [InlineData("http://127.0.0.1:8080/internal/status#")]
+    [InlineData("https://127.0.0.1:8080/internal/status#")]
+    [InlineData("http://api.deepl.com")]
+    [InlineData("https://deepl-proxy.example.com")]
+    public async Task DisallowedBaseUrl_IsRefusedBeforeAnyRequestIsSent(string baseUrl)
+    {
+        var (client, handler) = CreateClient(_ => FakeDeepLHandler.Json(HttpStatusCode.OK,
+            """{"character_count": 1, "character_limit": 2}"""));
+
+        var e = await Assert.ThrowsAsync<DeepLApiException>(() => client.GetUsageAsync(baseUrl, ApiKey));
+
+        Assert.Equal("invalid_base_url", e.ErrorCode);
+        Assert.Empty(handler.Requests);
+    }
+
+    [Fact]
+    public async Task HostConfiguredProxy_IsCalled()
+    {
+        var handler = new FakeDeepLHandler(_ => FakeDeepLHandler.Json(HttpStatusCode.OK,
+            """{"character_count": 1, "character_limit": 2}"""));
+        var options = new DeepLApiOptions { AdditionalAllowedBaseUrls = { "https://deepl-proxy.example.com" } };
+        var client = new DeepLApiClient(new FakeHttpClientFactory(handler), options);
+
+        await client.GetUsageAsync("https://deepl-proxy.example.com/", ApiKey);
+
+        Assert.Equal("https://deepl-proxy.example.com/v2/usage", handler.Requests.Single().Url);
+    }
+
+    [Fact]
+    public async Task LongApiErrorMessage_IsCapped()
+    {
+        var longMessage = new string('x', 2000);
+        var (client, _) = CreateClient(_ => FakeDeepLHandler.Json(HttpStatusCode.BadRequest,
+            $$"""{"message":"{{longMessage}}"}"""));
+
+        var e = await Assert.ThrowsAsync<DeepLApiException>(() => client.GetUsageAsync("https://api.deepl.com", ApiKey));
+
+        Assert.Equal("bad_request", e.ErrorCode);
+        Assert.Contains("…", e.Message);
+        Assert.True(e.Message.Length < 500, $"message length {e.Message.Length}");
+    }
 }

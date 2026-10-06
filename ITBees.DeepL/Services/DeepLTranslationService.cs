@@ -7,11 +7,14 @@ public class DeepLTranslationService : IDeepLTranslationService
 
     private readonly IDeepLIntegrationSettingsService _settingsService;
     private readonly IDeepLApiClient _deepLApiClient;
+    private readonly DeepLApiOptions _options;
 
-    public DeepLTranslationService(IDeepLIntegrationSettingsService settingsService, IDeepLApiClient deepLApiClient)
+    public DeepLTranslationService(IDeepLIntegrationSettingsService settingsService, IDeepLApiClient deepLApiClient,
+        DeepLApiOptions? options = null)
     {
         _settingsService = settingsService;
         _deepLApiClient = deepLApiClient;
+        _options = options ?? new DeepLApiOptions();
     }
 
     public bool IsEnabled()
@@ -75,6 +78,10 @@ public class DeepLTranslationService : IDeepLTranslationService
         return _deepLApiClient.GetUsageAsync(apiUrl, apiKey, ct);
     }
 
+    /// <summary>
+    /// Saved key and address; the address goes through the allow-list (throws "invalid_base_url" for a saved
+    /// address that is no longer allowed).
+    /// </summary>
     private (string apiUrl, string apiKey) GetConnection()
     {
         var settings = _settingsService.GetEnabledSettingsOrNull();
@@ -85,7 +92,7 @@ public class DeepLTranslationService : IDeepLTranslationService
                 "(Ustawienia platformy -> Integracje -> DeepL).", 0);
         }
 
-        return (DeepLApiUrl.Resolve(settings.ApiKey, settings.BaseUrl), settings.ApiKey.Trim());
+        return (DeepLApiUrl.Resolve(settings.ApiKey, settings.BaseUrl, _options), settings.ApiKey.Trim());
     }
 
     /// <summary>DeepL codes are upper case (PL, EN-GB); null / blank stays null (= detect).</summary>

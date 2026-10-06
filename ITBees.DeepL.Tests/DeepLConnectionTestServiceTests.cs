@@ -80,9 +80,12 @@ public class DeepLConnectionTestServiceTests
     }
 
     [Fact]
-    public async Task CustomAddress_HasNoPlan()
+    public async Task HostConfiguredProxy_HasNoPlan()
     {
-        var result = await _service.TestAsync(new DeepLConnectionTestIm
+        var options = new DeepLApiOptions { AdditionalAllowedBaseUrls = { "https://deepl-proxy.example.com" } };
+        var service = new DeepLConnectionTestService(_settings, _apiClient, options);
+
+        var result = await service.TestAsync(new DeepLConnectionTestIm
         {
             ApiKey = "key",
             BaseUrl = "https://deepl-proxy.example.com/"
@@ -92,6 +95,35 @@ public class DeepLConnectionTestServiceTests
         Assert.Null(result.Plan);
         Assert.Equal("https://deepl-proxy.example.com", result.ApiUrl);
         Assert.StartsWith("Połączenie działa. Konto DeepL API:", result.Message);
+    }
+
+    [Theory]
+    [InlineData("http://127.0.0.1:8080/internal/status#")]
+    [InlineData("https://deepl-proxy.example.com")]
+    public async Task DisallowedAddressFromTheForm_FailsWithoutCallingAnything(string baseUrl)
+    {
+        var result = await _service.TestAsync(new DeepLConnectionTestIm { ApiKey = "key", BaseUrl = baseUrl });
+
+        Assert.False(result.Success);
+        Assert.Contains("https://api.deepl.com", result.Message);
+        Assert.Empty(_apiClient.Calls);
+    }
+
+    [Fact]
+    public async Task DisallowedSavedAddress_FailsWithoutCallingAnything()
+    {
+        _settings.Saved = new DeepLIntegrationSettings
+        {
+            Enabled = true,
+            ApiKey = "key",
+            BaseUrl = "http://127.0.0.1:8080/internal/status#"
+        };
+
+        var result = await _service.TestAsync(new DeepLConnectionTestIm());
+
+        Assert.False(result.Success);
+        Assert.Contains("https", result.Message);
+        Assert.Empty(_apiClient.Calls);
     }
 
     [Fact]

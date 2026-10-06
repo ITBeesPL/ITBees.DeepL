@@ -10,11 +10,20 @@ public class DeepLIntegrationSetup
     /// database - see <see cref="DbModelBuilder.Register"/>), the connection test and the translation service.
     /// The /DeepLIntegrationSettings and /DeepLConnectionTest controllers are discovered automatically by ASP.NET.
     /// </summary>
-    public void Register(IServiceCollection services)
+    /// <param name="services">The host's service collection.</param>
+    /// <param name="options">
+    /// Host options; without them only https://api.deepl.com and https://api-free.deepl.com are ever called.
+    /// Add a proxy with <see cref="DeepLApiOptions.AdditionalAllowedBaseUrls"/>.
+    /// </param>
+    public void Register(IServiceCollection services, DeepLApiOptions? options = null)
     {
+        services.AddSingleton(options ?? new DeepLApiOptions());
+
         // 60 s: a batch of long texts can take a while; usage and languages answer within a second.
         services.AddHttpClient(DeepLApiClient.HttpClientName,
                 client => client.Timeout = TimeSpan.FromSeconds(60))
+            // No automatic redirects: a 3xx from an allowed address must not carry the key to another host.
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false })
             .SetHandlerLifetime(TimeSpan.FromMinutes(5));
 
         services.AddTransient<IDeepLIntegrationSettingsService, DeepLIntegrationSettingsService>();

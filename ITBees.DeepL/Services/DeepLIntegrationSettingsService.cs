@@ -1,6 +1,7 @@
 using ITBees.DeepL.Entities;
 using ITBees.DeepL.Models;
 using ITBees.Interfaces.Repository;
+using ITBees.RestfulApiControllers.Exceptions;
 
 namespace ITBees.DeepL.Services;
 
@@ -13,13 +14,16 @@ public class DeepLIntegrationSettingsService : IDeepLIntegrationSettingsService
 {
     private readonly IReadOnlyRepository<DeepLIntegrationSettings> _settingsRoRepo;
     private readonly IWriteOnlyRepository<DeepLIntegrationSettings> _settingsWoRepo;
+    private readonly DeepLApiOptions _options;
 
     public DeepLIntegrationSettingsService(
         IReadOnlyRepository<DeepLIntegrationSettings> settingsRoRepo,
-        IWriteOnlyRepository<DeepLIntegrationSettings> settingsWoRepo)
+        IWriteOnlyRepository<DeepLIntegrationSettings> settingsWoRepo,
+        DeepLApiOptions? options = null)
     {
         _settingsRoRepo = settingsRoRepo;
         _settingsWoRepo = settingsWoRepo;
+        _options = options ?? new DeepLApiOptions();
     }
 
     public DeepLIntegrationSettingsVm Get()
@@ -31,7 +35,7 @@ public class DeepLIntegrationSettingsService : IDeepLIntegrationSettingsService
     public DeepLIntegrationSettingsVm Update(DeepLIntegrationSettingsIm im, Guid? modifiedByGuid = null)
     {
         var apiKey = im.ApiKey?.Trim() ?? "";
-        var baseUrl = NormalizeBaseUrl(im.BaseUrl);
+        var baseUrl = ValidateBaseUrl(im.BaseUrl);
         var existing = _settingsRoRepo.GetData(x => true).FirstOrDefault();
 
         if (existing == null)
@@ -68,13 +72,29 @@ public class DeepLIntegrationSettingsService : IDeepLIntegrationSettingsService
             return null;
         }
 
-        settings.BaseUrl = NormalizeBaseUrl(settings.BaseUrl);
+        settings.BaseUrl = settings.BaseUrl?.Trim().TrimEnd('/') ?? "";
         return settings;
     }
 
-    /// <summary>Empty stays empty (the key picks the Free / Pro address); otherwise trimmed, no trailing slash.</summary>
-    private static string NormalizeBaseUrl(string? baseUrl)
+    /// <summary>
+    /// Empty stays empty (the key picks the Free / Pro address). Anything else must be one of the allowed
+    /// addresses - a mistyped or foreign address is refused with 400 instead of being saved and called later.
+    /// </summary>
+    private string ValidateBaseUrl(string? baseUrl)
     {
-        return baseUrl?.Trim().TrimEnd('/') ?? "";
+        var url = baseUrl?.Trim() ?? "";
+        if (url == "")
+        {
+            return "";
+        }
+
+        try
+        {
+            return DeepLApiUrl.EnsureAllowed(url, _options);
+        }
+        catch (DeepLApiException e)
+        {
+            throw new FasApiErrorException(e.Message, 400);
+        }
     }
 }

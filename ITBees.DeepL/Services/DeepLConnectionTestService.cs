@@ -10,7 +10,8 @@ public interface IDeepLConnectionTestService
 
 /// <summary>
 /// Checks a DeepL key with GET /v2/usage - the call is free of charge and answers 403 for a wrong key or a key
-/// used on the wrong (Free / Pro) address. Reports the characters used in the billing period.
+/// used on the wrong (Free / Pro) address. Reports the characters used in the billing period. The address is
+/// validated against the allow-list first, so the test cannot be used to make the server call other hosts.
 /// </summary>
 public class DeepLConnectionTestService : IDeepLConnectionTestService
 {
@@ -18,12 +19,14 @@ public class DeepLConnectionTestService : IDeepLConnectionTestService
 
     private readonly IDeepLIntegrationSettingsService _settingsService;
     private readonly IDeepLApiClient _deepLApiClient;
+    private readonly DeepLApiOptions _options;
 
     public DeepLConnectionTestService(IDeepLIntegrationSettingsService settingsService,
-        IDeepLApiClient deepLApiClient)
+        IDeepLApiClient deepLApiClient, DeepLApiOptions? options = null)
     {
         _settingsService = settingsService;
         _deepLApiClient = deepLApiClient;
+        _options = options ?? new DeepLApiOptions();
     }
 
     public async Task<DeepLConnectionTestVm> TestAsync(DeepLConnectionTestIm im, CancellationToken ct = default)
@@ -32,13 +35,8 @@ public class DeepLConnectionTestService : IDeepLConnectionTestService
         var saved = _settingsService.Get();
         var apiKey = string.IsNullOrWhiteSpace(im.ApiKey) ? saved.ApiKey : im.ApiKey.Trim();
         var baseUrl = string.IsNullOrWhiteSpace(im.BaseUrl) ? saved.BaseUrl : im.BaseUrl.Trim();
-        var apiUrl = DeepLApiUrl.Resolve(apiKey, baseUrl);
 
-        var result = new DeepLConnectionTestVm
-        {
-            ApiUrl = apiUrl,
-            Plan = DeepLApiUrl.PlanFor(apiUrl)
-        };
+        var result = new DeepLConnectionTestVm { ApiUrl = baseUrl };
 
         if (string.IsNullOrWhiteSpace(apiKey))
         {
@@ -48,6 +46,11 @@ public class DeepLConnectionTestService : IDeepLConnectionTestService
 
         try
         {
+            // Resolve validates the address (https, allow-list) before anything is sent.
+            var apiUrl = DeepLApiUrl.Resolve(apiKey, baseUrl, _options);
+            result.ApiUrl = apiUrl;
+            result.Plan = DeepLApiUrl.PlanFor(apiUrl);
+
             var usage = await _deepLApiClient.GetUsageAsync(apiUrl, apiKey, ct);
             result.Success = true;
             result.CharacterCount = usage.CharacterCount;

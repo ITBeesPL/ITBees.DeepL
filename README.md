@@ -13,7 +13,7 @@ What is inside:
 | `POST /DeepLConnectionTest` | "Testuj połączenie": checks the key with `GET /v2/usage` (free of charge), returns the plan and the characters used in the billing period. Empty fields in the request mean the saved settings, so a key can be checked before it is saved |
 | `IDeepLTranslationService` | Translation with the saved settings: `TranslateAsync` (one text or many, batches of 50), `GetLanguagesAsync`, `GetUsageAsync`, `IsEnabled()` |
 | `IDeepLApiClient` | Raw client (`/v2/translate`, `/v2/usage`, `/v2/languages`) taking the key and the address per call |
-| `DeepLApiUrl` | Free keys (`:fx` suffix) go to `https://api-free.deepl.com`, Pro keys to `https://api.deepl.com`; an explicit `BaseUrl` wins |
+| `DeepLApiUrl` | Free keys (`:fx` suffix) go to `https://api-free.deepl.com`, Pro keys to `https://api.deepl.com`; an explicit `BaseUrl` wins, but only when it is on the allow-list (see below) |
 
 ## Host registration
 
@@ -29,6 +29,25 @@ Then add a migration (`dotnet ef migrations add AddDeepLIntegration`) - one tabl
 The host must provide the generic ITBees repositories (`IReadOnlyRepository<>` / `IWriteOnlyRepository<>`,
 e.g. `ITBees.MysqlRepository`) and `IHttpClientFactory` (`AddHttpClient` is called by the setup). The controllers
 are discovered automatically by ASP.NET once the package is referenced.
+
+## API address allow-list (SSRF)
+
+The address comes from a form in the admin panel, so the library never calls anything but
+`https://api.deepl.com`, `https://api-free.deepl.com` and the proxies the host lists in `DeepLApiOptions`.
+Every request goes through `DeepLApiUrl.EnsureAllowed`: absolute https URL, no user info, query or fragment
+(`https://host/x#` would swallow the appended `/v2/usage`), exact match with the allow-list. `PUT
+/DeepLIntegrationSettings` answers 400 for any other address, `POST /DeepLConnectionTest` reports it as a
+failed test without sending anything, and the named HttpClient does not follow redirects. DeepL's own error
+text is appended to messages capped at 300 characters.
+
+To put a company proxy in front of DeepL, allow it in the host (https only):
+
+```csharp
+new DeepLIntegrationSetup().Register(builder.Services, new DeepLApiOptions
+{
+    AdditionalAllowedBaseUrls = { "https://deepl-proxy.example.com" }
+});
+```
 
 ## Using translations
 

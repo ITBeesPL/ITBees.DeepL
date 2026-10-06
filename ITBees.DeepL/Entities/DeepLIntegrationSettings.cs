@@ -17,7 +17,8 @@ public class DeepLIntegrationSettings
 
     /// <summary>
     /// DeepL API address without the trailing slash. Empty = chosen by the key: https://api-free.deepl.com
-    /// for a Free plan key (":fx" suffix), https://api.deepl.com otherwise.
+    /// for a Free plan key (":fx" suffix), https://api.deepl.com otherwise. Must be one of the addresses
+    /// allowed by <see cref="Services.DeepLApiUrl"/> (DeepL endpoints or a host-configured proxy).
     /// </summary>
     public string BaseUrl { get; set; } = "";
 

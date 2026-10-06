@@ -8,15 +8,20 @@ public class DeepLApiClient : IDeepLApiClient
 {
     public const string HttpClientName = "DeepLApi";
 
+    /// <summary>DeepL's own error text is appended to our message up to this length.</summary>
+    private const int MaxApiMessageLength = 300;
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly DeepLApiOptions _options;
 
     // One constructor on purpose: hosts register a bare HttpClient in DI, so a second constructor taking
     // HttpClient would end in "ambiguous constructors" (as it did in ITBees.Inpost).
-    public DeepLApiClient(IHttpClientFactory httpClientFactory)
+    public DeepLApiClient(IHttpClientFactory httpClientFactory, DeepLApiOptions? options = null)
     {
         _httpClientFactory = httpClientFactory;
+        _options = options ?? new DeepLApiOptions();
     }
 
     public async Task<DeepLApiUsage> GetUsageAsync(string baseUrl, string apiKey, CancellationToken ct = default)
@@ -41,9 +46,14 @@ public class DeepLApiClient : IDeepLApiClient
         return await SendAsync<List<DeepLApiLanguage>>(request, ct);
     }
 
-    private static HttpRequestMessage CreateRequest(HttpMethod method, string baseUrl, string path, string apiKey)
+    /// <summary>
+    /// The address is validated here, right before the request, whatever the caller: only the DeepL endpoints
+    /// and the host-configured proxies are called (see <see cref="DeepLApiUrl.EnsureAllowed"/>).
+    /// </summary>
+    private HttpRequestMessage CreateRequest(HttpMethod method, string baseUrl, string path, string apiKey)
     {
-        var request = new HttpRequestMessage(method, $"{baseUrl.TrimEnd('/')}{path}");
+        var apiUrl = DeepLApiUrl.EnsureAllowed(baseUrl, _options);
+        var request = new HttpRequestMessage(method, $"{apiUrl}{path}");
         request.Headers.Authorization = new AuthenticationHeaderValue("DeepL-Auth-Key", apiKey.Trim());
         return request;
     }
@@ -103,7 +113,7 @@ public class DeepLApiClient : IDeepLApiClient
         };
     }
 
-    /// <summary>Operator-facing explanation of the status; the API's own message is appended when present.</summary>
+    /// <summary>Operator-facing explanation of the status; DeepL's own (trimmed, capped) message is appended when present.</summary>
     private static string MessageFor(int statusCode, string? apiMessage)
     {
         var text = statusCode switch
@@ -119,7 +129,18 @@ public class DeepLApiClient : IDeepLApiClient
             _ => $"API DeepL odpowiedziało kodem {statusCode}."
         };
 
-        return string.IsNullOrWhiteSpace(apiMessage) ? text : $"{text} ({apiMessage.Trim()})";
+        if (string.IsNullOrWhiteSpace(apiMessage))
+        {
+            return text;
+        }
+
+        var detail = apiMessage.Trim();
+        if (detail.Length > MaxApiMessageLength)
+        {
+            detail = detail[..MaxApiMessageLength] + "…";
+        }
+
+        return $"{text} ({detail})";
     }
 
     private static T? Deserialize<T>(string body)
