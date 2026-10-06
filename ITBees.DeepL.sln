@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.12.35527.113 d17.12
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ITBees.DeepL", "ITBees.DeepL\ITBees.DeepL.csproj", "{738CCBFD-FD76-4B93-B5D4-933FAEF93559}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ITBees.DeepL.Tests", "ITBees.DeepL.Tests\ITBees.DeepL.Tests.csproj", "{4BF23C5A-10B1-469E-B1D2-60BC9E273239}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{738CCBFD-FD76-4B93-B5D4-933FAEF93559}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{738CCBFD-FD76-4B93-B5D4-933FAEF93559}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{738CCBFD-FD76-4B93-B5D4-933FAEF93559}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{738CCBFD-FD76-4B93-B5D4-933FAEF93559}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4BF23C5A-10B1-469E-B1D2-60BC9E273239}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4BF23C5A-10B1-469E-B1D2-60BC9E273239}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4BF23C5A-10B1-469E-B1D2-60BC9E273239}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4BF23C5A-10B1-469E-B1D2-60BC9E273239}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
