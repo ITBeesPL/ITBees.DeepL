@@ -88,5 +88,8 @@ address, "Zapisz" and "Testuj połączenie". Generated TypeScript services: `Dee
 
 ## Releasing
 
-Bump `<Version>` in `ITBees.DeepL/ITBees.DeepL.csproj`. A merge to `master` builds and publishes the NuGet
-package to the ITBees feed (`https://nugets.itbees.pl/v3/index.json`).
+A merge to `master` builds and publishes the NuGet package to the ITBees feed
+(`https://nugets.itbees.pl/v3/index.json`). The build assigns the package version itself - the first merge
+produced 8.0.2 while the csproj still said 8.0.1 - so `<Version>` in `ITBees.DeepL/ITBees.DeepL.csproj` only
+matters for a local `dotnet pack` and is not bumped for a release. The host takes the version the feed reports
+(e.g. `dotnet package search ITBees.DeepL`).
